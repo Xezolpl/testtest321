@@ -22,7 +22,7 @@ void initForegroundTask() {
       ],
     ),
     iosNotificationOptions: const IOSNotificationOptions(
-      showNotification: true,
+      showNotification: false,
       playSound: false,
     ),
     foregroundTaskOptions: const ForegroundTaskOptions(

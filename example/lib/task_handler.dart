@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:rxdart/rxdart.dart';
 
 class MyTaskHandler extends TaskHandler {
   SendPort? _sendPort;
@@ -16,7 +17,13 @@ class MyTaskHandler extends TaskHandler {
   Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {
     _sendPort = sendPort;
 
-    sub = Geolocator.getPositionStream().listen((pos) {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+    sub = Geolocator.getPositionStream(
+        locationSettings: AppleSettings(
+      allowBackgroundLocationUpdates: true,
+      showBackgroundLocationIndicator: true,
+    )).debounceTime(const Duration(seconds: 2)).listen((pos) {
       lastPosition = pos;
     })
       ..onError((e) {
@@ -31,17 +38,18 @@ class MyTaskHandler extends TaskHandler {
       notificationText: '$timestamp - $lastPosition',
     );
 
-    sendPort?.send('$timestamp - $lastPosition');
+    scheduleMicrotask(() async {
+      final coll =
+          FirebaseFirestore.instance.collection('locations').doc('123');
+      final map = await coll.get();
 
-    WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp();
-
-    final coll = FirebaseFirestore.instance.collection('locations').doc('123');
-    final map = await coll.get();
-    coll.set(<String, dynamic>{
-      ...map.data() ?? {},
-      timestamp.toString(): lastPosition?.toString(),
+      coll.set(<String, dynamic>{
+        ...map.data() ?? {},
+        timestamp.toString(): lastPosition?.toString(),
+      });
     });
+
+    sendPort?.send('$timestamp - $lastPosition');
   }
 
   @override
